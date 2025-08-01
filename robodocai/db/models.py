@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, JSON, DateTime, func
+from sqlalchemy import Column, String, JSON, DateTime, func, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from .database import Base
 
@@ -25,6 +25,10 @@ class Document(Base):
     # Un campo JSON para almacenar los datos estructurados extraídos por el LLM.
     # Ejemplo: {"invoice_id": "INV-123", "total_amount": 450.50, ...}
     structured_data = Column(JSON, nullable=True)
+
+    # El contenido de texto crudo extraído del documento.
+    # Se llena después de la fase de OCR o extracción de texto.
+    raw_text_content = Column(Text, nullable=True)
 
     # Marcas de tiempo para auditoría, gestionadas automáticamente por la base de datos.
     created_at = Column(DateTime, server_default=func.now())
