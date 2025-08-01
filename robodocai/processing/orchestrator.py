@@ -8,9 +8,13 @@ from db import repository
 # Importaciones para el procesamiento de PDF
 from pypdf import PdfReader
 
+# Importaciones de agentes
+from agents.data_extractor import extract_data_from_text
+
 def process_document(doc_id: uuid.UUID, file_path: str):
     """
-    Procesa un documento en segundo plano, extrayendo su texto y actualizando su estado.
+    Procesa un documento en segundo plano, extrayendo su texto, 
+    obteniendo datos estructurados y actualizando su estado.
 
     Args:
         doc_id (uuid.UUID): El ID del documento a procesar.
@@ -33,7 +37,14 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         repository.update_document_content(db=db, document_id=doc_id, text_content=extracted_text)
         print(f"[+] Text extracted and saved for document {doc_id}")
 
-        # 4. Actualizar estado a "completed"
+        # 4. Extraer datos estructurados del texto usando el agente
+        structured_data = extract_data_from_text(text_content=extracted_text)
+
+        # 5. Guardar los datos estructurados en la base de datos
+        repository.update_document_structured_data(db=db, document_id=doc_id, data=structured_data)
+        print(f"[+] Structured data saved for document {doc_id}")
+
+        # 6. Actualizar estado a "completed"
         repository.update_document_status(db=db, document_id=doc_id, new_status="completed")
         print(f"[+] Document {doc_id} status updated to 'completed'")
 

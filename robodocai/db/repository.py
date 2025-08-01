@@ -69,3 +69,22 @@ def update_document_content(db: Session, document_id: UUID, text_content: str) -
         db.commit()
         db.refresh(db_document)
     return db_document
+
+def update_document_structured_data(db: Session, document_id: UUID, data: dict) -> models.Document | None:
+    """
+    Guarda los datos estructurados (JSON) en un registro de documento existente.
+
+    Args:
+        db: La sesión de la base de datos.
+        document_id: El UUID del documento a actualizar.
+        data: Un diccionario con los datos estructurados a guardar.
+
+    Returns:
+        El objeto Document actualizado si se encuentra, de lo contrario None.
+    """
+    db_document = get_document_by_id(db, document_id)
+    if db_document:
+        db_document.structured_data = data
+        db.commit()
+        db.refresh(db_document)
+    return db_document
