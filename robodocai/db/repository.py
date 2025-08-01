@@ -50,3 +50,22 @@ def update_document_status(db: Session, document_id: UUID, new_status: str) -> m
         db.commit()
         db.refresh(db_document)
     return db_document
+
+def update_document_content(db: Session, document_id: UUID, text_content: str) -> models.Document | None:
+    """
+    Actualiza el campo de contenido de texto crudo de un documento.
+
+    Args:
+        db: La sesión de la base de datos.
+        document_id: El UUID del documento a actualizar.
+        text_content: El contenido de texto extraído para guardar.
+
+    Returns:
+        El objeto Document actualizado si se encuentra, de lo contrario None.
+    """
+    db_document = get_document_by_id(db, document_id)
+    if db_document:
+        db_document.raw_text_content = text_content
+        db.commit()
+        db.refresh(db_document)
+    return db_document
