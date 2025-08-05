@@ -51,6 +51,26 @@ def update_document_status(db: Session, document_id: UUID, new_status: str) -> m
         db.refresh(db_document)
     return db_document
 
+def update_pre_flight_check_results(db: Session, document_id: UUID, data: dict) -> models.Document | None:
+    """
+    Guarda los resultados de las comprobaciones previas (JSON) en un registro de documento.
+
+    Args:
+        db: La sesión de la base de datos.
+        document_id: El UUID del documento a actualizar.
+        data: Un diccionario con los resultados de las comprobaciones.
+
+    Returns:
+        El objeto Document actualizado si se encuentra, de lo contrario None.
+    """
+    db_document = get_document_by_id(db, document_id)
+    if db_document:
+        db_document.pre_flight_check_results = data
+        db.commit()
+        db.refresh(db_document)
+    return db_document
+
+
 def update_document_content(db: Session, document_id: UUID, text_content: str) -> models.Document | None:
     """
     Actualiza el campo de contenido de texto crudo de un documento.

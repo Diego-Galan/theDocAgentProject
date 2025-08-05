@@ -22,6 +22,10 @@ class Document(Base):
     # Valores posibles: "received", "processing", "completed", "error", "needs_review".
     status = Column(String, nullable=False, default="received")
 
+    # Un campo JSON para almacenar los resultados de las validaciones de negocio previas (Pre-Flight Checks).
+    # Ejemplo: {"checks_passed": false, "errors": ["Falta el NIF del comprador."]}
+    pre_flight_check_results = Column(JSON, nullable=True)
+
     # Un campo JSON para almacenar los datos estructurados extraídos por el LLM.
     # Ejemplo: {"invoice_id": "INV-123", "total_amount": 450.50, ...}
     structured_data = Column(JSON, nullable=True)

@@ -11,6 +11,8 @@ from pypdf import PdfReader
 # Importaciones de agentes
 from agents.data_extractor import extract_data_from_text
 from agents.classification_agent import propose_tariff_classification
+from agents.supervisor_agent import review_final_output
+from agents.pre_flight_check_agent import run_pre_flight_checks
 
 def process_document(doc_id: uuid.UUID, file_path: str):
     """
@@ -81,9 +83,38 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         repository.update_document_classification_data(db=db, document_id=doc_id, data=classification_result)
         print(f"[+] Classification data saved for document {doc_id}")
 
-        # 8. Actualizar estado a "completed"
-        repository.update_document_status(db=db, document_id=doc_id, new_status="completed")
-        print(f"[+] Document {doc_id} status updated to 'completed'")
+        # 8. Ejecutar Pre-Flight Checks de negocio
+        pre_flight_results = run_pre_flight_checks(
+            structured_data=structured_data,
+            classification_data=classification_result
+        )
+        repository.update_pre_flight_check_results(db=db, document_id=doc_id, data=pre_flight_results)
+        print(f"[+] Pre-flight check results saved for document {doc_id}")
+
+        # --- Lógica de Negocio Condicional ---
+        # Si las comprobaciones previas fallan, marca para revisión y detiene el proceso.
+        if not pre_flight_results.get("checks_passed", True):
+            print(f"[-] Document {doc_id} failed pre-flight checks. Sending for human review.")
+            repository.update_document_status(db=db, document_id=doc_id, new_status="needs_review")
+            return  # Detiene el procesamiento aquí
+
+        # 9. Supervisar el resultado final
+        supervisor_verdict = review_final_output(
+            structured_data=structured_data, 
+            classification_data=classification_result
+        )
+
+        # 9. Guardar el veredicto del supervisor
+        repository.update_supervisor_verdict(db=db, document_id=doc_id, data=supervisor_verdict)
+        print(f"[+] Supervisor verdict saved for document {doc_id}")
+
+        # 10. Determinar el estado final basado en el veredicto del supervisor
+        final_status = "completed"  # Estado por defecto
+        if supervisor_verdict.get("validation_status") != "approved":
+            final_status = "needs_review"
+        
+        repository.update_document_status(db=db, document_id=doc_id, new_status=final_status)
+        print(f"[+] Document {doc_id} status updated to '{final_status}'")
 
         print(f"[+] Finished processing for document: {doc_id}")
 
