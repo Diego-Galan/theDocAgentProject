@@ -40,6 +40,22 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         # 4. Extraer datos estructurados del texto usando el agente
         structured_data = extract_data_from_text(text_content=extracted_text)
 
+        # --- Manejo de Errores del Agente ---
+        # Comprueba si el agente de extracción de datos devolvió un error.
+        if "error" in structured_data:
+            error_details = structured_data.get("message", "No details provided.")
+            full_error_message = f"Agent Error: {error_details}"
+            print(f"[-] Error processing document {doc_id}: {full_error_message}")
+            
+            # Usa la nueva función dedicada para registrar el fallo
+            repository.log_document_failure(
+                db=db, 
+                document_id=doc_id, 
+                error_message=full_error_message
+            )
+            # Detiene el procesamiento para este documento
+            return
+
         # 5. Guardar los datos estructurados en la base de datos
         repository.update_document_structured_data(db=db, document_id=doc_id, data=structured_data)
         print(f"[+] Structured data saved for document {doc_id}")

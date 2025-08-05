@@ -88,3 +88,46 @@ def update_document_structured_data(db: Session, document_id: UUID, data: dict) 
         db.commit()
         db.refresh(db_document)
     return db_document
+
+def update_document_classification_data(db: Session, document_id: UUID, data: dict) -> models.Document | None:
+    """
+    Guarda los datos de clasificación (JSON) en un registro de documento existente.
+
+    Args:
+        db: La sesión de la base de datos.
+        document_id: El UUID del documento a actualizar.
+        data: Un diccionario con los datos de clasificación a guardar.
+
+    Returns:
+        El objeto Document actualizado si se encuentra, de lo contrario None.
+    """
+    db_document = get_document_by_id(db, document_id)
+    if db_document:
+        db_document.classification_data = data
+        db.commit()
+        db.refresh(db_document)
+    return db_document
+
+
+def log_document_failure(db: Session, document_id: UUID, error_message: str) -> models.Document | None:
+    """
+    Registra un fallo de procesamiento para un documento específico.
+
+    Esta función actualiza el estado del documento a 'error' y guarda
+    un mensaje de error detallado en el campo `error_log`.
+
+    Args:
+        db: La sesión de la base de datos.
+        document_id: El UUID del documento que falló.
+        error_message: El mensaje de error que se va a registrar.
+
+    Returns:
+        El objeto Document actualizado si se encuentra, de lo contrario None.
+    """
+    db_document = get_document_by_id(db, document_id)
+    if db_document:
+        db_document.status = "error"
+        db_document.error_log = error_message
+        db.commit()
+        db.refresh(db_document)
+    return db_document

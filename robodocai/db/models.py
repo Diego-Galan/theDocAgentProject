@@ -26,9 +26,17 @@ class Document(Base):
     # Ejemplo: {"invoice_id": "INV-123", "total_amount": 450.50, ...}
     structured_data = Column(JSON, nullable=True)
 
+    # Un campo JSON para almacenar el resultado del agente de clasificación arancelaria.
+    # Ejemplo: {"hs_code": "8517.12", "confidence": 0.95, "reasoning": "..."}
+    classification_data = Column(JSON, nullable=True)
+
     # El contenido de texto crudo extraído del documento.
     # Se llena después de la fase de OCR o extracción de texto.
     raw_text_content = Column(Text, nullable=True)
+
+    # Campo para registrar cualquier mensaje de error durante el procesamiento.
+    # Esto ayuda a la depuración y al seguimiento de problemas.
+    error_log = Column(Text, nullable=True)
 
     # Marcas de tiempo para auditoría, gestionadas automáticamente por la base de datos.
     created_at = Column(DateTime, server_default=func.now())
