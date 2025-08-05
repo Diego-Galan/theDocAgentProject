@@ -10,6 +10,7 @@ from pypdf import PdfReader
 
 # Importaciones de agentes
 from agents.data_extractor import extract_data_from_text
+from agents.classification_agent import propose_tariff_classification
 
 def process_document(doc_id: uuid.UUID, file_path: str):
     """
@@ -60,7 +61,27 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         repository.update_document_structured_data(db=db, document_id=doc_id, data=structured_data)
         print(f"[+] Structured data saved for document {doc_id}")
 
-        # 6. Actualizar estado a "completed"
+        # 6. Proponer clasificación arancelaria
+        classification_result = propose_tariff_classification(structured_data=structured_data)
+
+        # --- Manejo de Errores del Agente de Clasificación ---
+        if "error" in classification_result:
+            error_details = classification_result.get("message", "No details provided.")
+            full_error_message = f"Classification Agent Error: {error_details}"
+            print(f"[-] Error processing document {doc_id}: {full_error_message}")
+            
+            repository.log_document_failure(
+                db=db, 
+                document_id=doc_id, 
+                error_message=full_error_message
+            )
+            return
+        
+        # 7. Guardar el resultado de la clasificación
+        repository.update_document_classification_data(db=db, document_id=doc_id, data=classification_result)
+        print(f"[+] Classification data saved for document {doc_id}")
+
+        # 8. Actualizar estado a "completed"
         repository.update_document_status(db=db, document_id=doc_id, new_status="completed")
         print(f"[+] Document {doc_id} status updated to 'completed'")
 
