@@ -30,6 +30,10 @@ class Document(Base):
     # Ejemplo: {"hs_code": "8517.12", "confidence": 0.95, "reasoning": "..."}
     classification_data = Column(JSON, nullable=True)
 
+    # Un campo JSON para almacenar el veredicto del agente supervisor.
+    # Ejemplo: {"validation_status": "approved", "warnings": []}
+    supervisor_verdict = Column(JSON, nullable=True)
+
     # El contenido de texto crudo extraído del documento.
     # Se llena después de la fase de OCR o extracción de texto.
     raw_text_content = Column(Text, nullable=True)

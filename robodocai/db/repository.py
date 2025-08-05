@@ -108,6 +108,25 @@ def update_document_classification_data(db: Session, document_id: UUID, data: di
         db.refresh(db_document)
     return db_document
 
+def update_supervisor_verdict(db: Session, document_id: UUID, data: dict) -> models.Document | None:
+    """
+    Guarda el veredicto del supervisor (JSON) en un registro de documento existente.
+
+    Args:
+        db: La sesión de la base de datos.
+        document_id: El UUID del documento a actualizar.
+        data: Un diccionario con el veredicto del supervisor a guardar.
+
+    Returns:
+        El objeto Document actualizado si se encuentra, de lo contrario None.
+    """
+    db_document = get_document_by_id(db, document_id)
+    if db_document:
+        db_document.supervisor_verdict = data
+        db.commit()
+        db.refresh(db_document)
+    return db_document
+
 
 def log_document_failure(db: Session, document_id: UUID, error_message: str) -> models.Document | None:
     """
