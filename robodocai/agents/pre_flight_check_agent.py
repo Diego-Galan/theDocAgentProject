@@ -7,9 +7,6 @@ def run_pre_flight_checks(structured_data: dict, classification_data: dict) -> d
     """
     Ejecuta una serie de validaciones de negocio sobre los datos extraídos y clasificados.
 
-    Esta función simula la lógica de validación. En un escenario real, contendría
-    reglas de negocio específicas (ej. comprobar umbrales de valores, validar NIFs, etc.).
-
     Args:
         structured_data: El diccionario de datos extraído de la factura.
         classification_data: El diccionario con la clasificación arancelaria propuesta.
@@ -17,21 +14,40 @@ def run_pre_flight_checks(structured_data: dict, classification_data: dict) -> d
     Returns:
         Un diccionario con los resultados de las comprobaciones.
     """
-    print("[+] (Agent: PreFlightChecker) Starting pre-flight business checks...")
+    print("[+] (Agent: PreFlightChecker) Starting real pre-flight business checks...")
 
-    # Lógica de validación de negocio simulada.
-    # En un caso real, aquí se añadirían reglas como:
-    # - if structured_data.get('total_amount', 0) > 10000:
-    #       results['warnings'].append('Factura supera el umbral de 10,000.')
-    # - if not structured_data.get('buyer_nif'):
-    #       results['errors'].append('Falta el NIF del comprador.')
-    #       results['checks_passed'] = False
+    # Inicializa el diccionario de resultados asumiendo que todo está bien.
+    # Este es el estado por defecto.
     check_results = {
         "checks_passed": True,
         "warnings": [],
         "errors": []
     }
 
-    print("[+] (Agent: PreFlightChecker) Pre-flight checks completed successfully.")
+    # --- INICIO DE REGLAS DE NEGOCIO ---
+
+    # Regla 1: Validar la existencia del 'invoice_id'.
+    # Este es un campo crítico para la auditoría y la identificación.
+    invoice_id = structured_data.get("invoice_id")
+    if not invoice_id: # Esta condición cubre tanto la ausencia de la clave como un valor None o vacío.
+        check_results["checks_passed"] = False
+        check_results["errors"].append(
+            "Error Crítico: El número de factura (invoice_id) es un campo obligatorio y no fue encontrado o está vacío."
+        )
+
+    # Regla 2: Validar que el 'total_amount' sea un número válido y positivo.
+    total_amount = structured_data.get("total_amount")
+    if not isinstance(total_amount, (int, float)) or total_amount <= 0:
+        check_results["checks_passed"] = False
+        check_results["errors"].append(
+            f"Error Crítico: El monto total de la factura ('{total_amount}') no es un número válido o es menor o igual a cero."
+        )
+
+    # --- FIN DE REGLAS DE NEGOCIO ---
+
+    if check_results["checks_passed"]:
+        print("[+] (Agent: PreFlightChecker) Pre-flight checks completed successfully.")
+    else:
+        print(f"[!] (Agent: PreFlightChecker) Pre-flight checks failed. Errors found: {check_results['errors']}")
 
     return check_results
