@@ -1,8 +1,8 @@
 import uuid
 from pathlib import Path
 import shutil
-from typing import List # Added List
-from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks, HTTPException, Form, File, APIRouter # Added Form, File, APIRouter
+from typing import List
+from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks, HTTPException, Form, File, APIRouter
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -25,7 +25,7 @@ router = APIRouter()
 # --- Esquemas Pydantic (Modelos de Datos para la API) ---
 class DocumentResponse(BaseModel):
     id: str
-    shipment_id: str # Added shipment_id
+    shipment_id: str
     source_filename: str
     status: str
     raw_text_content: str | None = None
@@ -36,7 +36,7 @@ class DocumentResponse(BaseModel):
     error_log: str | None = None
     created_at: datetime
     updated_at: datetime | None = None
-    document_type: models.DocumentType # Added document_type
+    document_type: models.DocumentType
 
     class Config:
         orm_mode = True
@@ -75,6 +75,23 @@ async def create_new_shipment(
     """
     user_id = "test-user-01" # Hardcoded for now
     db_shipment = repository.create_shipment(db=db, user_id=user_id, name=shipment.name)
+    return db_shipment
+
+@router.get("/shipments/{shipment_id}", response_model=ShipmentResponse, tags=["Shipments"])
+async def get_shipment_by_id(
+    shipment_id: uuid.UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Recupera la información completa de un expediente (Shipment) por su ID,
+    incluyendo todos los documentos asociados.
+    """
+    # Query the Shipment, and eager load its documents
+    db_shipment = db.query(models.Shipment).filter(models.Shipment.id == shipment_id).first()
+
+    if db_shipment is None:
+        raise HTTPException(status_code=404, detail=f"Shipment with ID {shipment_id} not found.")
+
     return db_shipment
 
 @router.post("/shipments/{shipment_id}/documents/", status_code=status.HTTP_201_CREATED, response_model=DocumentResponse, tags=["Documents"])
