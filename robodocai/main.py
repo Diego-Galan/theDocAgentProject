@@ -1,7 +1,8 @@
 import uuid
 from pathlib import Path
 import shutil
-from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks, HTTPException
+from typing import List # Added List
+from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks, HTTPException, Form, File, APIRouter # Added Form, File, APIRouter
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -18,15 +19,16 @@ app = FastAPI(
     description="API para el procesamiento inteligente de documentos de comercio exterior."
 )
 
+# Initialize APIRouter
+router = APIRouter()
+
 # --- Esquemas Pydantic (Modelos de Datos para la API) ---
-# Esta es la versión robusta del esquema de respuesta.
 class DocumentResponse(BaseModel):
-    # Tratamos el ID como un string en la respuesta para máxima compatibilidad.
     id: str
+    shipment_id: str # Added shipment_id
     source_filename: str
     status: str
     raw_text_content: str | None = None
-    # Aceptamos los campos JSON como diccionarios estándar de Python.
     structured_data: dict | None = None
     classification_data: dict | None = None
     pre_flight_check_results: dict | None = None
@@ -34,9 +36,27 @@ class DocumentResponse(BaseModel):
     error_log: str | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    document_type: models.DocumentType # Added document_type
 
     class Config:
-        orm_mode = True # Permite que Pydantic lea los datos desde un objeto SQLAlchemy.
+        orm_mode = True
+
+class ShipmentCreate(BaseModel):
+    name: str
+
+class ShipmentResponse(BaseModel):
+    id: str
+    user_id: str | None = None
+    name: str
+    status: str
+    consolidated_data: dict | None = None
+    dua_payload: dict | None = None
+    created_at: datetime
+    updated_at: datetime | None = None
+    documents: List[DocumentResponse] = [] # List of associated documents
+
+    class Config:
+        orm_mode = True
 
 # --- Endpoints de la API ---
 
@@ -45,17 +65,39 @@ async def root():
     """Endpoint de verificación de estado."""
     return {"message": "RoboDocAI API is running."}
 
-
-@app.post("/upload/", status_code=status.HTTP_201_CREATED, tags=["Documents"])
-async def upload_document(
-    file: UploadFile, 
-    tasks: BackgroundTasks, 
+@router.post("/shipments/", response_model=ShipmentResponse, tags=["Shipments"])
+async def create_new_shipment(
+    shipment: ShipmentCreate,
     db: Session = Depends(get_db)
 ):
     """
-    Sube un documento, lo guarda temporalmente y agenda su procesamiento en segundo plano.
+    Crea un nuevo expediente (Shipment) para agrupar documentos.
     """
-    new_document = repository.create_document(db=db, source_filename=file.filename)
+    user_id = "test-user-01" # Hardcoded for now
+    db_shipment = repository.create_shipment(db=db, user_id=user_id, name=shipment.name)
+    return db_shipment
+
+@router.post("/shipments/{shipment_id}/documents/", status_code=status.HTTP_201_CREATED, response_model=DocumentResponse, tags=["Documents"])
+async def upload_document_to_shipment(
+    shipment_id: uuid.UUID, # Path parameter
+    document_type: models.DocumentType = Form(...), # Form data
+    file: UploadFile = File(...),
+    tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Sube un documento, lo asocia a un expediente existente y agenda su procesamiento.
+    """
+    db_shipment = db.query(models.Shipment).filter(models.Shipment.id == shipment_id).first()
+    if not db_shipment:
+        raise HTTPException(status_code=404, detail=f"Shipment with ID {shipment_id} not found.")
+
+    new_document = repository.create_document(
+        db=db,
+        shipment_id=shipment_id,
+        source_filename=file.filename,
+        document_type=document_type
+    )
     doc_id = new_document.id
 
     temp_dir = Path("temp_uploads")
@@ -77,12 +119,7 @@ async def upload_document(
 
     tasks.add_task(orchestrator.process_document, doc_id=doc_id, file_path=str(temp_file_path))
 
-    return {
-        "message": "Document uploaded successfully and is scheduled for processing.",
-        "id": str(doc_id),
-        "source_filename": new_document.source_filename,
-    }
-
+    return new_document
 
 @app.get("/documents/{document_id}", response_model=DocumentResponse, tags=["Documents"])
 async def get_document_results(document_id: uuid.UUID, db: Session = Depends(get_db)):
@@ -98,5 +135,9 @@ async def get_document_results(document_id: uuid.UUID, db: Session = Depends(get
     # Convertimos el ID a string manualmente antes de devolverlo
     response_data = db_document.__dict__
     response_data['id'] = str(db_document.id)
-    
+    response_data['shipment_id'] = str(db_document.shipment_id) # Ensure shipment_id is stringified
+
     return response_data
+
+# Register the router with the main app
+app.include_router(router)
