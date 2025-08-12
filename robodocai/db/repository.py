@@ -177,7 +177,7 @@ def log_document_failure(db: Session, document_id: UUID, error_message: str) -> 
     Registra un fallo de procesamiento para un documento específico.
 
     Esta función actualiza el estado del documento a 'error' y guarda
-    un mensaje de error detallado en el campo `error_log`.
+    un mensaje de error detallado en el campo `error_log`..
 
     Args:
         db: La sesión de la base de datos.
