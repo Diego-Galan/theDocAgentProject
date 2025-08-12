@@ -1,42 +1,49 @@
 import uuid
-from sqlalchemy import Column, String, JSON, DateTime, func, Text, Uuid
+from sqlalchemy import Column, String, JSON, DateTime, func, Text, Uuid, ForeignKey
+from sqlalchemy.orm import relationship
 from .database import Base
+
+
+class Shipment(Base):
+    """
+    Representa un "expediente" o "envío" que agrupa varios documentos.
+    Permite gestionar el ciclo de vida de una operación de comercio exterior completa.
+    """
+    __tablename__ = "shipments"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, nullable=True)  # Para futura multi-tenencia
+    name = Column(String, nullable=False, comment="Nombre descriptivo del expediente, ej: Importación Café Enero")
+    status = Column(String, nullable=False, default="collecting_documents")
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), server_default=func.now())
+
+    # Relación uno-a-muchos: Un envío tiene muchos documentos.
+    documents = relationship("Document", back_populates="shipment", cascade="all, delete-orphan")
+
 
 class Document(Base):
     """
-    Representa un documento procesado en el sistema RoboDocAI.
-    Cada fila es un único documento que ha sido subido para su procesamiento.
+    Representa un documento individual (factura, packing list, etc.)
+    que pertenece a un Shipment.
     """
     __tablename__ = "documents"
 
-    # Clave primaria: Un identificador único universal (UUID) para cada documento.
-    # Usamos el tipo genérico `Uuid` de SQLAlchemy para compatibilidad entre bases de datos.
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     
-    # El nombre del archivo tal como fue subido por el usuario.
+    # Clave foránea que vincula el documento a un envío.
+    shipment_id = Column(Uuid, ForeignKey("shipments.id"), nullable=False)
+
     source_filename = Column(String, nullable=False)
-
-    # El estado actual del documento dentro del flujo de trabajo de procesamiento.
     status = Column(String, nullable=False, default="received")
-
-    # Un campo JSON para almacenar los datos estructurados extraídos por el LLM.
     structured_data = Column(JSON, nullable=True)
-
-    # El contenido de texto crudo extraído del documento.
     raw_text_content = Column(Text, nullable=True)
-
-    # Un campo JSON para almacenar los resultados de las validaciones de negocio.
     pre_flight_check_results = Column(JSON, nullable=True)
-
-    # Un campo JSON para almacenar el resultado del agente de clasificación arancelaria.
     classification_data = Column(JSON, nullable=True)
-
-    # Un campo JSON para almacenar el veredicto del agente supervisor.
     supervisor_verdict = Column(JSON, nullable=True)
-
-    # Campo para registrar cualquier mensaje de error durante el procesamiento.
     error_log = Column(Text, nullable=True)
-
-    # Marcas de tiempo para auditoría, gestionadas automáticamente por la base de datos.
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now(), server_default=func.now())
+
+    # Relación muchos-a-uno: Muchos documentos pertenecen a un envío.
+    shipment = relationship("Shipment", back_populates="documents")
