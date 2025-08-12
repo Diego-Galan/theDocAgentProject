@@ -1,8 +1,19 @@
 import uuid
-from sqlalchemy import Column, String, JSON, DateTime, func, Text, Uuid, ForeignKey
+import enum
+from sqlalchemy import Column, String, JSON, DateTime, func, Text, Uuid, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from .database import Base
 
+class DocumentType(enum.Enum):
+    FACTURA_COMERCIAL = "Factura Comercial"
+    LISTA_EMPAQUE = "Packing List"
+    CONOCIMIENTO_EMBARQUE = "Bill of Lading o Guía Aérea (Air Waybill)"
+    CERTIFICADO_ORIGEN = "Certificado de Origen"
+    PERMISOS_CERTIFICACIONES_ESPECIALES = "Permisos y Certificaciones Especiales"
+    SEGURO_CARGA = "Certificado de Seguro de Carga"
+    VISTOS_BUENOS = "Vistos Buenos o Documentos de Aprobación"
+    CARTA_PORTE = "Carta de Porte Terrestre (CMR)"
+    OTRO = "Otro, a menudo RUT"
 
 class Shipment(Base):
     """
@@ -15,6 +26,8 @@ class Shipment(Base):
     user_id = Column(String, nullable=True)  # Para futura multi-tenencia
     name = Column(String, nullable=False, comment="Nombre descriptivo del expediente, ej: Importación Café Enero")
     status = Column(String, nullable=False, default="collecting_documents")
+    consolidated_data = Column(JSON, nullable=True, comment="Datos consolidados de todos los documentos del expediente")
+    dua_payload = Column(JSON, nullable=True, comment="Payload para la DUA, generado a partir de los datos consolidados")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now(), server_default=func.now())
 
@@ -35,6 +48,10 @@ class Document(Base):
     shipment_id = Column(Uuid, ForeignKey("shipments.id"), nullable=False)
 
     source_filename = Column(String, nullable=False)
+    
+    # Nuevo campo para el tipo de documento usando el Enum
+    document_type = Column(Enum(DocumentType), nullable=False, comment="Tipo de documento (e.g., FACTURA_COMERCIAL)")
+    
     status = Column(String, nullable=False, default="received")
     structured_data = Column(JSON, nullable=True)
     raw_text_content = Column(Text, nullable=True)

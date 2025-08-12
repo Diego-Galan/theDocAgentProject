@@ -2,18 +2,42 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from . import models
 
-def create_document(db: Session, source_filename: str) -> models.Document:
+def create_shipment(db: Session, user_id: str, name: str) -> models.Shipment:
     """
-    Crea un nuevo registro de documento en la base de datos.
+    Crea un nuevo registro de expediente (Shipment) en la base de datos.
 
     Args:
         db: La sesión de la base de datos.
+        user_id: El ID del usuario asociado al expediente.
+        name: El nombre descriptivo del expediente.
+
+    Returns:
+        El objeto Shipment recién creado.
+    """
+    db_shipment = models.Shipment(user_id=user_id, name=name)
+    db.add(db_shipment)
+    db.commit()
+    db.refresh(db_shipment)
+    return db_shipment
+
+def create_document(db: Session, shipment_id: UUID, source_filename: str, document_type: models.DocumentType) -> models.Document:
+    """
+    Crea un nuevo registro de documento en la base de datos, asociado a un Shipment.
+
+    Args:
+        db: La sesión de la base de datos.
+        shipment_id: El UUID del Shipment al que pertenece el documento.
         source_filename: El nombre del archivo original.
+        document_type: El tipo de documento (usando el Enum DocumentType).
 
     Returns:
         El objeto Document recién creado.
     """
-    db_document = models.Document(source_filename=source_filename)
+    db_document = models.Document(
+        shipment_id=shipment_id,
+        source_filename=source_filename,
+        document_type=document_type
+    )
     db.add(db_document)
     db.commit()
     db.refresh(db_document)
