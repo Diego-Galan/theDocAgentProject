@@ -27,6 +27,13 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         repository.update_document_status(db=db, document_id=doc_id, new_status="processing")
         print(f"[+] Document {doc_id} status updated to 'processing'")
 
+        # Retrieve the document object to access its properties like document_type
+        db_document = repository.get_document_by_id(db=db, document_id=doc_id)
+        if not db_document:
+            print(f"[-] CRITICAL: Document {doc_id} not found in DB. Aborting task.")
+            repository.log_document_failure(db=db, document_id=doc_id, error_message="Document not found in DB during processing.")
+            return
+
         # 2. Extraer texto del PDF (con manejo de errores de archivo)
         try:
             print(f"[+] Extracting text from {file_path}...")
@@ -68,7 +75,11 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         print(f"[+] Classification data saved for document {doc_id}")
 
         # 8. Ejecutar Pre-Flight Checks de negocio
-        pre_flight_results = run_pre_flight_checks(structured_data=structured_data, classification_data=classification_result)
+        pre_flight_results = run_pre_flight_checks(
+            structured_data=structured_data,
+            classification_data=classification_result,
+            document_type=db_document.document_type # Passed document_type
+        )
         repository.update_pre_flight_check_results(db=db, document_id=doc_id, data=pre_flight_results)
         print(f"[+] Pre-flight check results saved for document {doc_id}")
         
@@ -102,4 +113,3 @@ def process_document(doc_id: uuid.UUID, file_path: str):
         print(f"[+] Cleaned up temporary file: {file_path}")
     except OSError as e:
         print(f"[-] Error cleaning up file {file_path}: {e}")
-
