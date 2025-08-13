@@ -49,9 +49,9 @@ def propose_tariff_classification(structured_data: dict) -> dict:
 
         **Fragmentos del Arancel de Aduanas para tu Análisis:**
         ---
-        {"
+        {"\n---\n".join(tariff_context)}
 ---
-".join(tariff_context)}
+".join(tariff_context)
         ---
 
         **Instrucciones de Salida:**

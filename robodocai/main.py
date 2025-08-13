@@ -4,7 +4,7 @@ import shutil
 from typing import List
 from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks, HTTPException, Form, File, APIRouter
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from datetime import datetime
 
 from db import database, models, repository
@@ -38,8 +38,12 @@ class DocumentResponse(BaseModel):
     updated_at: datetime | None = None
     document_type: models.DocumentType
 
+    @field_serializer('id', 'shipment_id')
+    def serialize_ids(self, value: uuid.UUID) -> str:
+        return str(value)
+
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ShipmentCreate(BaseModel):
     name: str
@@ -55,8 +59,12 @@ class ShipmentResponse(BaseModel):
     updated_at: datetime | None = None
     documents: List[DocumentResponse] = [] # List of associated documents
 
+    @field_serializer('id')
+    def serialize_id(self, value: uuid.UUID) -> str:
+        return str(value)
+
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- Endpoints de la API ---
 
@@ -75,7 +83,8 @@ async def create_new_shipment(
     """
     user_id = "test-user-01" # Hardcoded for now
     db_shipment = repository.create_shipment(db=db, user_id=user_id, name=shipment.name)
-    return db_shipment
+    response_data = ShipmentResponse.model_validate(db_shipment)
+    return response_data
 
 @router.get("/shipments/{shipment_id}", response_model=ShipmentResponse, tags=["Shipments"])
 async def get_shipment_by_id(
@@ -92,14 +101,15 @@ async def get_shipment_by_id(
     if db_shipment is None:
         raise HTTPException(status_code=404, detail=f"Shipment with ID {shipment_id} not found.")
 
-    return db_shipment
+    response_data = ShipmentResponse.model_validate(db_shipment)
+    return response_data
 
 @router.post("/shipments/{shipment_id}/documents/", status_code=status.HTTP_201_CREATED, response_model=DocumentResponse, tags=["Documents"])
 async def upload_document_to_shipment(
     shipment_id: uuid.UUID, # Path parameter
+    tasks: BackgroundTasks,
     document_type: models.DocumentType = Form(...), # Form data
     file: UploadFile = File(...),
-    tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
@@ -136,7 +146,8 @@ async def upload_document_to_shipment(
 
     tasks.add_task(orchestrator.process_document, doc_id=doc_id, file_path=str(temp_file_path))
 
-    return new_document
+    response_data = DocumentResponse.model_validate(new_document)
+    return response_data
 
 @app.get("/documents/{document_id}", response_model=DocumentResponse, tags=["Documents"])
 async def get_document_results(document_id: uuid.UUID, db: Session = Depends(get_db)):
@@ -149,11 +160,7 @@ async def get_document_results(document_id: uuid.UUID, db: Session = Depends(get
     if db_document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Convertimos el ID a string manualmente antes de devolverlo
-    response_data = db_document.__dict__
-    response_data['id'] = str(db_document.id)
-    response_data['shipment_id'] = str(db_document.shipment_id) # Ensure shipment_id is stringified
-
+    response_data = DocumentResponse.model_validate(db_document)
     return response_data
 
 # Register the router with the main app
